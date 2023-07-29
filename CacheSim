@@ -1,0 +1,111 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cmath>
+
+using namespace std;
+
+class Cache {
+private:
+    //Generic private variable declaration
+    int mem_size;
+    int cache_size;
+    int block_size;
+    int num_blocks;
+    vector<pair<bool, int>> cache;
+
+public:
+    //Cache contructor
+    Cache(int mem_size, int cache_size) : mem_size(mem_size), cache_size(cache_size) {
+
+        //Calculates the size of each cache block by dividing the total memory size mem_size by the cache size.
+        block_size = mem_size / 2;
+        num_blocks = cache_size;
+
+        //resizes the cache vector to have num_blocks entries
+        cache.resize(num_blocks, make_pair(false, -1)); // Initially, all entries are invalidated
+    }
+
+    bool isHit(int address) {
+
+        //calculates the tag value for the given memory address using bitwise right shift (>>) and the block size
+        int tag = address >> (int)log2(block_size);
+
+        for (int i = 0; i < num_blocks; ++i) {
+
+            // checks whether the current cache block (cache[i]) is valid and if its tag matches the tag calculated from the memory address
+            if (cache[i].first && cache[i].second == tag) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void insert(int address) {
+        int tag = address >> (int)log2(block_size);
+        bool found = false;
+
+        for (int i = 0; i < num_blocks; ++i) {
+
+            //If an empty cache block is found, this line updates the cache block with the new memory address.
+            if (!cache[i].first) {
+                cache[i] = make_pair(true, tag);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            // If cache is full, use FIFO replacement strategy.
+            for (int i = 0; i < num_blocks - 1; ++i) {
+                cache[i] = cache[i + 1];
+            }
+
+            //After shifting the existing cache blocks, this line inserts the new memory address into the last cache block
+            cache[num_blocks - 1] = make_pair(true, tag);
+        }
+    }
+};
+
+
+int main(int argc, char* argv[]) {
+
+    //Reads and sets the variables from the input command line
+    int mem_size = stoi(argv[1]);
+    int cache_size = stoi(argv[2]);
+    string access_filename = argv[3];
+
+    //Accessing file
+    ifstream infile(access_filename);
+
+    //initalizing the cashe
+    Cache cache(mem_size, cache_size);
+    int address;
+    int hits = 0, misses = 0;
+
+    //Iterating through file, checking, and adding inputs when it is a miss
+    while (infile >> address) {
+        if (cache.isHit(address)) {
+            cout << address << " Hit\n";
+            hits++;
+        } else {
+            cout << address << " Miss\n";
+            cache.insert(address);
+            misses++;
+        }
+    }
+
+    infile.close();
+
+    // Hit/Miss rate calculations
+    double hit_rate = 100.0 * (hits / (hits + misses));
+    double miss_rate = 100.0 * (misses / (hits + misses));
+
+    //Sending String and calculation to out file
+    ofstream outfile("hitmiss-out.txt");
+    outfile << "Out of " << (hits + misses) << " memory accesses, there was a " << hit_rate << "% cache hit rate and a " << miss_rate << "% miss rate.\n";
+    outfile.close();
+
+    return 0;
+}
